@@ -41,19 +41,7 @@ jobs:
       - checkout
       - run: ./mvnw test
                 
-  test-backend:
-    docker:
-      - image: circleci/node:13.8.0
-    steps:
-      - checkout
-      - run:
-          name: Run back end tests
-          command: |
-            cd backend
-            npm install
-            npm run test
 
- 
 
   scan-backend:
     docker:
