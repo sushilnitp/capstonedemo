@@ -1,0 +1,25 @@
+---
+- name: "upgrade packages."
+  become: true
+  apt:
+    upgrade: "yes"
+    
+- name: "install dependencies."
+  become: yes
+  apt:
+    name: ["nodejs", "npm"]
+    state: latest
+    update_cache: yes
+
+- name: "install pm2"
+  become: yes
+  npm:
+    name: pm2
+    global: yes
+    production: yes
+    state: present
+
+- name: Creates directory
+  file:
+    path: ~/web
+    state: directory

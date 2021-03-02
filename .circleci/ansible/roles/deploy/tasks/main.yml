@@ -1,0 +1,70 @@
+# - name: Upgrade all apt packages
+#   become: true
+#   apt:
+#     name: "*"
+#     state: latest
+- name: "upgrade packages."
+  become: true
+  apt:
+    upgrade: "yes"
+
+- name: "install dependencies."
+  become: true
+  apt:
+    name: ["nodejs", "npm"]
+    update_cache: yes
+
+    
+- name: "Get project/backend files from circleci server to local"
+  become: true
+  copy:
+    src: ~/project/backend/
+    dest: /home/ubuntu/backend/
+
+
+
+
+
+- name: "LS to verify the dist"
+  become: true
+  command: ls
+  args:
+    chdir: /home/ubuntu
+
+# - name: "Get project/backend files from circleci server to local"
+#   become: true
+#   copy:
+#     src: ~/project/backend/dist
+#     dest: /home/ubuntu/backend/
+
+# - name: "cd to backend dir"
+#   become: true
+#   command: cd /home/ubuntu/backend    
+
+- name: "install npm packages"
+  become: true
+  command: npm install -g n
+  args:
+    chdir: /home/ubuntu/backend
+    
+- name: "stable npm packages"
+  become: true
+  command: n stable
+  args:
+    chdir: /home/ubuntu/backend    
+    
+- name: "install npm "
+  become: true
+  command: npm install
+  args:
+    chdir: /home/ubuntu/backend
+    
+- name: "run npm run build"
+  become: true
+  command: npm build
+
+- name: "PM2 to run back-end server"
+  become: true
+  command: pm2 start npm -- run "start"
+  args:
+    chdir: /home/ubuntu/backend
