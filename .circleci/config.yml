@@ -7,7 +7,4 @@ workflows:
   maven_test:
     jobs:
       - maven/test
-      - persist_to_workspace:
-         root: ./
-         paths:
-           - target/      
+      
