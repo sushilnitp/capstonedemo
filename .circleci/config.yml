@@ -9,7 +9,7 @@ jobs:
           password: Allahabad!123
     steps:
       - checkout
-      - run: ./mvnw test
+      - run: mvn test
 
   build:
     docker:
