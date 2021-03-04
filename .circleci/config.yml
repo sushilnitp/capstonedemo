@@ -6,7 +6,7 @@ jobs:
       - image: circleci/openjdk:stretch
         auth:
           username: sushilnitp
-          password: Allahabad!123  # context / project UI env-var reference
+          password: Allahabad!123
     steps:
       - checkout
       - run: ./mvnw test
@@ -16,7 +16,7 @@ jobs:
       - image: circleci/openjdk:stretch
         auth:
           username: sushilnitp
-          password: Allahabad!123  # context / project UI env-var reference
+          password: Allahabad!123
     steps:
       - checkout
       - run: ./mvnw -Dmaven.test.skip=true package
