@@ -2,8 +2,6 @@ version: 2.1
 
 orbs:
   maven: circleci/maven@0.0.12
-  
-orbs:
   sonarqube: clicklogiq/sonarqube@1.0.1  
 
 workflows:
@@ -12,4 +10,4 @@ workflows:
       - maven/test # checkout, build, test, and upload test results
   code-analysis:
     jobs:
-      - analyze # checkout, build, test, and upload test results      
+      - sonarqube/analyze # checkout, build, test, and upload test results      
