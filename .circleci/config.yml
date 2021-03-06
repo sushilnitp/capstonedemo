@@ -1,19 +1,83 @@
 version: 2.1
 
+commands:
+  destroy-environment:
+    description: Destroy back-end and front-end cloudformation stacks given a workflow ID.
+    parameters:
+      # Add parameter here   
+    steps:
+      - run:
+          name: Destroy environments
+          when: on_fail
+          command: |
+            # Delete back end stack
+            aws cloudformation delete-stack --stack-name udacity-backend-${CIRCLE_WORKFLOW_ID}
+
 orbs:
   maven: circleci/maven@0.0.12
-  sonarcloud: sonarsource/sonarcloud@1.0.2
 
-jobs:
-  scan:
+  deploy-infrastructure:
     docker:
-      - image: 'node:latest'
+      - image: amazon/aws-cli
     steps:
       - checkout
-      - sonarcloud/scan
+      - run:
+          name: Ensure back-end infrastructure exists
+          command: |
+            aws cloudformation deploy \
+              --template-file .circleci/files/backend.yml \
+              --stack-name udacity-backend-${CIRCLE_WORKFLOW_ID} \
+              --tags StackName=udacity-backend-${CIRCLE_WORKFLOW_ID} \
+              --parameter-overrides ID=${CIRCLE_WORKFLOW_ID}
+
+      - run:
+          name: Add back-end ip to ansible inventory, this time use memstash
+          command: |
+            INSTANCE_IP=$(aws ec2 describe-instances \
+            --filters Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID} \
+            --query "Reservations[*].Instances[*].PublicIpAddress" \
+            --output text)
+            echo ${INSTANCE_IP}
+            curl -H "Content-Type: text/plain" \
+               -H "token: ${CIRCLE_WORKFLOW_ID}" \
+               --request PUT \
+               --data ${INSTANCE_IP} \
+               https://api.memstash.io/values/instance_ip
+
+      - destroy-environment     
+
+  configure-infrastructure:
+    docker:
+      - image: python:3.7-alpine3.11
+    steps:
+      - checkout
+      # - restore_cache:
+      #     keys: 
+      #       - inventory-${CIRCLE_WORKFLOW_ID}
+      - add_ssh_keys:
+          fingerprints: ["97:72:3d:15:d2:7c:0c:3f:07:7b:85:9e:e7:00:03:85"]
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --no-cache curl
+            apk add --no-cache --upgrade bash
+            apk add --no-cache --update ansible
+            apk add --no-cache openssh-client
+      - run:
+          name: Configure server
+          command: |
+            INSTANCE_IP=$(curl -H "token: ${CIRCLE_WORKFLOW_ID}" --request GET https://api.memstash.io/values/instance_ip)
+            echo ${INSTANCE_IP}
+            cd .circleci/ansible/
+            ls
+            echo ${INSTANCE_IP} >> ./inventory.txt
+            cat ./inventory.txt
+            export ANSIBLE_HOST_KEY_CHECKING=False
+            ansible-playbook -i ./inventory.txt configure-server.yml
+      - destroy-environment
 
 workflows:
   maven_test:
     jobs:
       - maven/test # checkout, build, test, and upload test results
-      - scan
+      - deploy-infrastructure
