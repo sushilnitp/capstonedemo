@@ -24,7 +24,7 @@
         timeout: 60
     - name: "install python for Ansible."
       become: true
-      raw: sudo apt -y update &&  sudo apt install openjdk-8-jre-headless
+      raw: sudo apt -y update
       changed_when: false
        
 
