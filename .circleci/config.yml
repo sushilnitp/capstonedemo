@@ -82,3 +82,4 @@ workflows:
       - maven/test # checkout, build, test, and upload test results
       - deploy-infrastructure
       - configure-infrastructure
+          requires: [deploy-infrastructure]  
