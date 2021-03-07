@@ -21,12 +21,7 @@
   pre_tasks:
     - name: "wait 60 seconds then move on"
       wait_for:
-        timeout: 60
-    - name: "install python for Ansible."
-      become: true
-      raw: sudo apt -y update
-      changed_when: false
-       
+        timeout: 60       
 
   roles:
     - configure-server
