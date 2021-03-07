@@ -41,10 +41,15 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.medium
-      Ebs: 
-        VolumeType: "io1"
-        Iops: "200"
-        VolumeSize: "80"      
+      BlockDeviceMappings: 
+      - DeviceName: "/dev/sdm"
+        Ebs: 
+          VolumeType: "io1"
+          Iops: "200"
+          DeleteOnTermination: "false"
+          VolumeSize: "20"
+      - DeviceName: "/dev/sdk"
+        NoDevice: {}     
       SecurityGroups:
         - Ref: InstanceSecurityGroup
       KeyName: udacity # If you use another key pair name, you should change this value to match.
