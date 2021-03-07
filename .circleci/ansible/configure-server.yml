@@ -22,11 +22,6 @@
     - name: "wait 60 seconds then move on"
       wait_for:
         timeout: 60
-    - name: "install Java."
-      become: true
-      raw: sudo apt-get install openjdk-8-jdk
-      changed_when: false
-       
 
   roles:
     - configure-server
