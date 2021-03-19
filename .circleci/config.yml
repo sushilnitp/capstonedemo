@@ -1,84 +1,178 @@
 version: 2.1
-
-commands:
-  destroy-environment: 
-    description: Destroy back-end and front-end cloudformation stacks given a workflow ID.
-    parameters:
-      # Add parameter here   
-    steps:
-      - run:
-          name: Destroy environments
-          when: on_fail
-          command: |
-            # Delete back end stack
-            aws cloudformation delete-stack --stack-name udacity-backend-${CIRCLE_WORKFLOW_ID}
-
 orbs:
-  maven: circleci/maven@0.0.12
+  docker: circleci/docker@1.5.0
+  aws-eks: circleci/aws-eks@1.0.3
+  kubernetes: circleci/kubernetes@0.4.0
+
+parameters:
+  cluster-name:
+    type: string
+    default: "capstone-cluster"
 jobs:
-  deploy-infrastructure:
+  build-app:
     docker:
-      - image: amazon/aws-cli
+      # Use the same Docker base as the project
+      - image: python:3.7.3-stretch
+
+    working_directory: ~/repo
+
     steps:
       - checkout
       - run:
-          name: Ensure back-end infrastructure exists
+          name: verify the system
           command: |
-            aws cloudformation deploy \
-              --template-file .circleci/files/backend.yml \
-              --stack-name udacity-backend-${CIRCLE_WORKFLOW_ID} \
-              --tags StackName=udacity-backend-${CIRCLE_WORKFLOW_ID} \
-              --parameter-overrides ID=${CIRCLE_WORKFLOW_ID}
+            ls -Rla ~/
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "requirements.txt" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
 
       - run:
-          name: Add back-end ip to ansible inventory, this time use memstash
+          name: install dependencies
           command: |
-            INSTANCE_IP=$(aws ec2 describe-instances \
-            --filters Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID} \
-            --query "Reservations[*].Instances[*].PublicIpAddress" \
-            --output text)
-            echo ${INSTANCE_IP}
-            curl -H "Content-Type: text/plain" \
-               -H "token: ${CIRCLE_WORKFLOW_ID}" \
-               --request PUT \
-               --data ${INSTANCE_IP} \
-               https://api.memstash.io/values/instance_ip
+            python3 -m venv venv
+            . venv/bin/activate
+            make install
+            
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-dependencies-{{ checksum "requirements.txt" }}
 
-      - destroy-environment     
-
-  configure-infrastructure:
+      # run code lint!
+      - run:
+          name: run lint
+          command: |
+            . venv/bin/activate
+            make lint
+# Lint Docker
+  lint-docker:
     docker:
-      - image: python:3.7-alpine3.11
+      - image: python:3.7.3-stretch
     steps:
       - checkout
-      # - restore_cache:
-      #     keys: 
-      #       - inventory-${CIRCLE_WORKFLOW_ID}
-      - add_ssh_keys:
-          fingerprints: ["97:72:3d:15:d2:7c:0c:3f:07:7b:85:9e:e7:00:03:85"]
       - run:
-          name: Install dependencies
-          command: |
-            apk add --no-cache curl
-            apk add --no-cache --upgrade bash
-            apk add --no-cache --update ansible
-            apk add --no-cache openssh-client
+          name : install hado Lint 
+          command: | 
+            wget -O /bin/hadolint https://github.com/hadolint/hadolint/releases/download/v1.16.3/hadolint-Linux-x86_64 &&\
+            chmod +x /bin/hadolint
       - run:
-          name: Configure server
-          command: |
-            INSTANCE_IP=$(curl -H "token: ${CIRCLE_WORKFLOW_ID}" --request GET https://api.memstash.io/values/instance_ip)
-            echo ${INSTANCE_IP}
-            cd .circleci/ansible/
-            ls
-            echo ${INSTANCE_IP} >> ./inventory.txt
-            cat ./inventory.txt
-            export ANSIBLE_HOST_KEY_CHECKING=False
-            ansible-playbook -i ./inventory.txt configure-server.yml
+          name : Hadolint 
+          command: | 
+            hadolint Dockerfile 
 
+  build-container:
+    docker:
+      - image: circleci/golang:1.15
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASS  # context / project UI env-var reference
+    steps:
+      - checkout
+      # ... steps for building/testing app ...
+
+      - setup_remote_docker:
+          version: 19.03.13
+          docker_layer_caching: false
+
+      # build and push Docker image
+      - run: |
+          TAG=0.1.$CIRCLE_BUILD_NUM
+          docker build --tag mbscale/capstoneapp-green-$CIRCLE_WORKFLOW_ID .
+          echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+          docker tag mbscale/capstoneapp-green-$CIRCLE_WORKFLOW_ID:latest $DOCKER_USER/capstone-app-green-$CIRCLE_WORKFLOW_ID:latest
+          docker push $DOCKER_USER/capstone-app-green-$CIRCLE_WORKFLOW_ID:latest
+          
+  create-eks-cluster:
+    executor: aws-eks/python3
+    steps:
+      - checkout
+      - aws-eks/create-cluster:
+          cluster-name: << pipeline.parameters.cluster-name >>
+          aws-region: us-west-2
+          nodegroup-name: linux-nodes
+          node-type: t2.medium
+          nodes: 1
+
+  create-or-update-eks-deployment:
+    executor: aws-eks/python3
+    steps:
+      - checkout
+      - aws-eks/update-kubeconfig-with-authenticator:
+          cluster-name: << pipeline.parameters.cluster-name >>
+          install-kubectl: true
+      - kubernetes/create-or-update-resource:
+          get-rollout-status: false
+          resource-file-path: blue-controller.json
+   #       resource-name: deployment/blue
+      - kubernetes/create-or-update-resource:
+           get-rollout-status: false
+           resource-file-path: green-controller.json
+   #        resource-name: deployment/green
+      - kubernetes/create-or-update-resource:
+          get-rollout-status: false
+          resource-file-path: blue-green-service.json
+   #       resource-name: deployment/service
+      - run:
+          name: Check the Resources
+          command: |
+            kubectl get services
+            kubectl get pods
+            kubectl get deploy,po -o wide
+            kubectl get nodes -o wide
+
+  get-resources:
+    executor: aws-eks/python3
+    steps:
+      - checkout
+      - aws-eks/update-kubeconfig-with-authenticator:
+          cluster-name: << pipeline.parameters.cluster-name >>
+          install-kubectl: true
+      - run:
+          name: Check the Resources
+          command: |
+            kubectl get services
+            kubectl get pods
+            kubectl get deploy,po -o wide
+            kubectl get nodes -o wide
+            kubectl describe service mukullb
+  
+  create-or-update-eks-deployment-to-green:
+    executor: aws-eks/python3
+    steps:
+      - checkout
+      - aws-eks/update-kubeconfig-with-authenticator:
+          cluster-name: << pipeline.parameters.cluster-name >>
+          install-kubectl: true
+      - kubernetes/create-or-update-resource:
+          get-rollout-status: true
+          resource-file-path: blue-green-service.json
+          resource-name: deployment/servicegreen
+      - run:
+          name: Check the Resources
+          command: |
+            kubectl get services
+            kubectl get deploy,po -o wide
+            kubectl get nodes -o wide
+   
 workflows:
   default:
-    jobs:
-      #- maven/test # checkout, build, test, and upload test results
-      - deploy-infrastructure
-      - configure-infrastructure:
-          requires: [deploy-infrastructure]
+     jobs:
+      # - build-app
+       #- lint-docker:
+        #   requires: [build-app]
+       #- build-container:
+       #    requires: [lint-docker]
+       - create-eks-cluster:
+           requires: [build-container]
+       - create-or-update-eks-deployment:
+           requires: [create-eks-cluster]
+       - get-resources:
+           requires: [create-or-update-eks-deployment]
+       - create-or-update-eks-deployment-to-green:
+           requires: [create-or-update-eks-deployment]
+       #- aws-eks/delete-cluster
+       
+           
