@@ -166,7 +166,7 @@ workflows:
        #- build-container:
        #    requires: [lint-docker]
        - create-eks-cluster:
-           requires: [build-container]
+        #  requires: [build-container]
        - create-or-update-eks-deployment:
            requires: [create-eks-cluster]
        - get-resources:
