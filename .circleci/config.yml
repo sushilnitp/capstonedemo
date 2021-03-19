@@ -90,7 +90,7 @@ jobs:
     steps:
       - checkout
       - aws-eks/create-cluster:
-          cluster-name: capstone-cluster
+          cluster-name:  << pipeline.parameters.cluster-name >>
           aws-region: us-west-2
           nodegroup-name: linux-nodes
           node-type: t2.medium
@@ -101,7 +101,7 @@ jobs:
     steps:
       - checkout
       - aws-eks/update-kubeconfig-with-authenticator:
-          cluster-name: capstone-cluster
+          cluster-name:  << pipeline.parameters.cluster-name >>
           install-kubectl: true
       - kubernetes/create-or-update-resource:
           get-rollout-status: false
@@ -165,7 +165,7 @@ workflows:
         #   requires: [build-app]
        #- build-container:
        #    requires: [lint-docker]
-       - create-eks-cluster:
+       - create-eks-cluster
         #  requires: [build-container]
        - create-or-update-eks-deployment:
            requires: [create-eks-cluster]
