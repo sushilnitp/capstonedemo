@@ -156,6 +156,7 @@ jobs:
             kubectl get services
             kubectl get deploy,po -o wide
             kubectl get nodes -o wide
+            kubectl get -o wide svc client
    
 workflows:
   default:
