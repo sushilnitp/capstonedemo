@@ -22,7 +22,7 @@
              "containers":[
                 {
                    "name":"green",
-                   "image":"sushilnitp/gs-spring-boot-k8s",
+                   "image":"mukulbapna/capstone-app-green-d9d6a993-2af7-4876-80f6-cf0a5b8590da",
                    "ports":[
                       {
                          "name":"http-server",
@@ -35,3 +35,4 @@
        }
     }
  }
+ 

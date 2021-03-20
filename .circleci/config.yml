@@ -80,9 +80,9 @@ jobs:
       # build and push Docker image
       - run: |
           TAG=0.1.$CIRCLE_BUILD_NUM
-          docker build --tag mbscale/capstoneapp-green-$CIRCLE_WORKFLOW_ID .
+          docker build --tag sushilnitp/capstoneapp-green-$CIRCLE_WORKFLOW_ID .
           echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-          docker tag mbscale/capstoneapp-green-$CIRCLE_WORKFLOW_ID:latest $DOCKER_USER/capstone-app-green-$CIRCLE_WORKFLOW_ID:latest
+          docker tag sushilnitp/capstoneapp-green-$CIRCLE_WORKFLOW_ID:latest $DOCKER_USER/capstone-app-green-$CIRCLE_WORKFLOW_ID:latest
           docker push $DOCKER_USER/capstone-app-green-$CIRCLE_WORKFLOW_ID:latest
           
   create-eks-cluster:
@@ -90,7 +90,7 @@ jobs:
     steps:
       - checkout
       - aws-eks/create-cluster:
-          cluster-name:  << pipeline.parameters.cluster-name >>
+          cluster-name: << pipeline.parameters.cluster-name >>
           aws-region: us-west-2
           nodegroup-name: linux-nodes
           node-type: t2.medium
@@ -101,7 +101,7 @@ jobs:
     steps:
       - checkout
       - aws-eks/update-kubeconfig-with-authenticator:
-          cluster-name:  << pipeline.parameters.cluster-name >>
+          cluster-name: << pipeline.parameters.cluster-name >>
           install-kubectl: true
       - kubernetes/create-or-update-resource:
           get-rollout-status: false
@@ -160,13 +160,13 @@ jobs:
 workflows:
   default:
      jobs:
-      # - build-app
-       #- lint-docker:
-        #   requires: [build-app]
-       #- build-container:
-       #    requires: [lint-docker]
-       - create-eks-cluster
-        #  requires: [build-container]
+       - build-app
+       - lint-docker:
+           requires: [build-app]
+       - build-container:
+           requires: [lint-docker]
+       - create-eks-cluster:
+           requires: [build-container]
        - create-or-update-eks-deployment:
            requires: [create-eks-cluster]
        - get-resources:
