@@ -22,7 +22,7 @@
             "containers":[
                {
                   "name":"blue",
-                  "image":"mbscale/capstoneapp-db46f899-7b97-4283-98d8-072943f17022",
+                  "image":"sushilnitp/capstoneapp-$CIRCLE_WORKFLOW_ID",
                   "ports":[
                      {
                         "name":"http-server",

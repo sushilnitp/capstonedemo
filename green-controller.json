@@ -22,7 +22,7 @@
              "containers":[
                 {
                    "name":"green",
-                   "image":"mukulbapna/capstone-app-green-d9d6a993-2af7-4876-80f6-cf0a5b8590da",
+                   "image":"sushinitp/capstone-app-green-$CIRCLE_WORKFLOW_ID",
                    "ports":[
                       {
                          "name":"http-server",

@@ -26,7 +26,6 @@ jobs:
       - restore_cache:
           keys:
             - v1-dependencies-{{ checksum "requirements.txt" }}
-            # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
 
       - run:
@@ -63,7 +62,7 @@ jobs:
           command: | 
             hadolint Dockerfile 
 
-  build-container:
+  prepare-container:
     docker:
       - image: circleci/golang:1.15
         auth:
@@ -96,7 +95,7 @@ jobs:
           node-type: t2.medium
           nodes: 1
 
-  create-or-update-eks-deployment:
+  update-eks-deployment:
     executor: aws-eks/python3
     steps:
       - checkout
@@ -163,16 +162,16 @@ workflows:
        - build-app
        - lint-docker:
            requires: [build-app]
-       - build-container:
+       - prepare-container:
            requires: [lint-docker]
        - create-eks-cluster:
-           requires: [build-container]
-       - create-or-update-eks-deployment:
+           requires: [prepare-container]
+       - update-eks-deployment:
            requires: [create-eks-cluster]
        - get-resources:
-           requires: [create-or-update-eks-deployment]
+           requires: [update-eks-deployment]
        - create-or-update-eks-deployment-to-green:
-           requires: [create-or-update-eks-deployment]
+           requires: [update-eks-deployment]
        #- aws-eks/delete-cluster
        
            
