@@ -4,6 +4,6 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return f'Web App with Python Flask with blue Green deployment!!'
+    return 'Web App with Python Flask with blue Green deployment!!'
 
 app.run(host='0.0.0.0', port=80)
